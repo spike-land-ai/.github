@@ -23,6 +23,10 @@ on:
         description: "PAT with repo scope for dispatching dependency-updated events"
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   packages: write
@@ -123,9 +127,15 @@ jobs:
               repo: '.github',
               path: 'dependency-map.json',
             });
-            const depMap = JSON.parse(
-              Buffer.from(mapResponse.data.content, 'base64').toString('utf8')
-            );
+            let depMap;
+            try {
+              depMap = JSON.parse(
+                Buffer.from(mapResponse.data.content, 'base64').toString('utf8')
+              );
+            } catch (err) {
+              core.warning(`Failed to parse dependency-map.json: ${err.message}`);
+              return;
+            }
 
             const publishedPackages = JSON.parse(process.env.PUBLISHED_PACKAGES || '[]');
 
@@ -138,13 +148,18 @@ jobs:
               const consumers = depMap[name] || [];
               console.log(`${name}@${version} → consumers: ${consumers.join(', ') || '(none)'}`);
               for (const repo of consumers) {
-                console.log(`  Dispatching dependency-updated to spike-land-ai/${repo}`);
-                await github.rest.repos.createDispatchEvent({
-                  owner: 'spike-land-ai',
-                  repo,
-                  event_type: 'dependency-updated',
-                  client_payload: { package: name, version },
-                });
+                core.info(`  Dispatching dependency-updated to spike-land-ai/${repo}`);
+                try {
+                  await github.rest.repos.createDispatchEvent({
+                    owner: 'spike-land-ai',
+                    repo,
+                    event_type: 'dependency-updated',
+                    client_payload: { package: name, version },
+                  });
+                  core.info(`Dispatched to ${repo}: ${name}@${version}`);
+                } catch (err) {
+                  core.warning(`Failed to dispatch to ${repo}: ${err.message}`);
+                }
               }
             }
         env:

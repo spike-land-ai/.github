@@ -46,18 +46,16 @@ const testOverrides = {
   },
 };
 
-/**
- * Create a customized ESLint flat config.
- *
- * @param {object} [options]
- * @param {string[]} [options.ignores] - Additional ignore patterns (node_modules/dist/coverage always included)
- * @param {string[]} [options.files] - File patterns to lint (default: ["**/*.ts"])
- * @param {boolean} [options.jsx] - Enable JSX parsing (default: false)
- * @param {object} [options.extraPlugins] - Additional plugins to merge
- * @param {object} [options.extraRules] - Additional rules to merge
- * @param {object} [options.settings] - ESLint settings (e.g., { react: { version: "detect" } })
- * @returns ESLint flat config array
- */
+// Create a customized ESLint flat config.
+//
+// @param {object} [options]
+// @param {string[]} [options.ignores] - Additional ignore patterns (node_modules/dist/coverage always included)
+// @param {string[]} [options.files] - File patterns to lint (default: ["**/*.ts"])
+// @param {boolean} [options.jsx] - Enable JSX parsing (default: false)
+// @param {object} [options.extraPlugins] - Additional plugins to merge
+// @param {object} [options.extraRules] - Additional rules to merge
+// @param {object} [options.settings] - ESLint settings (e.g., { react: { version: "detect" } })
+// @returns ESLint flat config array
 export function createConfig({
   ignores = [],
   files = ["**/*.ts"],
