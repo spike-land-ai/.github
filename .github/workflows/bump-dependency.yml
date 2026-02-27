@@ -1,0 +1,104 @@
+name: Bump Dependency
+
+on:
+  workflow_call:
+    inputs:
+      package-name:
+        description: "npm package name to bump (e.g. @spike-land-ai/esbuild-wasm)"
+        required: true
+        type: string
+      new-version:
+        description: "Exact version to pin (e.g. 0.27.5)"
+        required: true
+        type: string
+      package-manager:
+        description: "Package manager: npm or yarn"
+        required: false
+        type: string
+        default: npm
+    secrets:
+      GH_PAT_TOKEN:
+        description: "PAT with repo scope for creating PRs"
+        required: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@spike-land-ai"
+
+      - name: Check if package is a dependency
+        id: check
+        run: |
+          PKG="${{ inputs.package-name }}"
+          PRESENT=$(node -e "
+            try {
+              const p = JSON.parse(require('fs').readFileSync('package.json','utf8'));
+              const all = Object.assign({}, p.dependencies, p.devDependencies, p.peerDependencies);
+              console.log(all[process.argv[1]] ? 'true' : 'false');
+            } catch(e) { console.log('false'); }
+          " "$PKG" 2>/dev/null || echo "false")
+          echo "present=$PRESENT" >> $GITHUB_OUTPUT
+
+      - name: Update version in package.json
+        if: steps.check.outputs.present == 'true'
+        id: update
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
+            const name = process.argv[1];
+            const ver  = process.argv[2];
+            let changed = false;
+            for (const section of ['dependencies','devDependencies','peerDependencies']) {
+              if (pkg[section] && pkg[section][name]) {
+                pkg[section][name] = ver;
+                changed = true;
+              }
+            }
+            if (changed) {
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+              console.log('Updated ' + name + ' → ' + ver);
+            }
+          " "${{ inputs.package-name }}" "${{ inputs.new-version }}"
+
+      - name: Sanitize branch name
+        if: steps.check.outputs.present == 'true'
+        id: branch
+        run: |
+          PKG_SAFE=$(echo "${{ inputs.package-name }}" | tr '/@' '--' | tr -cs 'a-zA-Z0-9-' '-')
+          echo "name=deps/bump-${PKG_SAFE}-${{ inputs.new-version }}" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check.outputs.present == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          commit-message: "chore: bump ${{ inputs.package-name }} to ${{ inputs.new-version }}"
+          title: "chore: bump ${{ inputs.package-name }} to ${{ inputs.new-version }}"
+          body: |
+            Automated dependency bump triggered by upstream publish.
+
+            | Field | Value |
+            |-------|-------|
+            | **Package** | `${{ inputs.package-name }}` |
+            | **New version** | `${{ inputs.new-version }}` |
+            | **Triggered by** | `ci-publish.yml` cascade |
+
+            _This PR was created automatically. CI must pass before auto-merge._
+          branch: ${{ steps.branch.outputs.name }}
+          delete-branch: true
+          labels: "dependencies,automated"
+
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-operation == 'created'
+        run: gh pr merge --auto --squash "${{ steps.cpr.outputs.pull-request-url }}"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}

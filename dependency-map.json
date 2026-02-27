@@ -1,0 +1,8 @@
+{
+  "@spike-land-ai/esbuild-wasm": ["esbuild-wasm-mcp", "code", "transpile", "spike-land-backend", "spike.land"],
+  "@spike-land-ai/esbuild-wasm-mcp": ["code", "spike-land-backend"],
+  "@spike-land-ai/code": ["transpile", "spike-land-backend"],
+  "@spike-land-ai/shared": ["code", "transpile", "spike-land-backend", "spike.land"],
+  "@spike-land-ai/react-ts-worker": ["spike.land"],
+  "@spike-land-ai/spike-cli": ["spike.land"]
+}

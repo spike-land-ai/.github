@@ -1,0 +1,109 @@
+name: Dependency Sync Sweep
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    name: Sweep ${{ matrix.repo }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repo: code
+            package-manager: npm
+          - repo: esbuild-wasm-mcp
+            package-manager: npm
+          - repo: transpile
+            package-manager: npm
+          - repo: spike-land-backend
+            package-manager: npm
+          - repo: spike.land
+            package-manager: yarn
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: spike-land-ai/${{ matrix.repo }}
+          token: ${{ secrets.GH_PAT_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Configure GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_PAT_TOKEN }}" >> ~/.npmrc
+
+      - name: Check for outdated @spike-land-ai/* packages
+        id: ncu
+        run: |
+          npm install -g npm-check-updates
+          OUTDATED=$(ncu \
+            --filter "@spike-land-ai/*" \
+            --jsonUpgraded \
+            --registry https://npm.pkg.github.com \
+            2>/dev/null || echo "{}")
+
+          # Treat empty/null output as no updates
+          if [ -z "$OUTDATED" ] || [ "$OUTDATED" = "{}" ] || [ "$OUTDATED" = "null" ]; then
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "No @spike-land-ai/* updates needed for ${{ matrix.repo }}"
+          else
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "outdated<<EOF" >> $GITHUB_OUTPUT
+            echo "$OUTDATED" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "Updates found: $OUTDATED"
+            ncu --upgrade --filter "@spike-land-ai/*" --registry https://npm.pkg.github.com
+          fi
+
+      - name: Commit and push bump branch
+        if: steps.ncu.outputs.has_updates == 'true'
+        id: push
+        run: |
+          if git diff --quiet package.json; then
+            echo "No changes detected in package.json"
+            echo "pushed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          BRANCH="deps/nightly-sweep-$(date +%Y%m%d)"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git checkout -b "$BRANCH"
+          git add package.json
+          git commit -m "chore: sync @spike-land-ai/* dependencies (nightly sweep)"
+          git push origin "$BRANCH" --force
+          echo "pushed=true" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN }}
+
+      - name: Open pull request
+        if: steps.push.outputs.pushed == 'true'
+        run: |
+          BODY="Nightly dependency sweep found outdated \`@spike-land-ai/*\` packages.
+
+          Updated packages:
+          \`\`\`json
+          ${{ steps.ncu.outputs.outdated }}
+          \`\`\`
+
+          _Created automatically by \`dep-sync-sweep.yml\`. CI must pass before merge._"
+
+          gh pr create \
+            --repo "spike-land-ai/${{ matrix.repo }}" \
+            --title "chore: sync @spike-land-ai/* dependencies" \
+            --body "$BODY" \
+            --label "dependencies" \
+            --label "automated" \
+            --head "${{ steps.push.outputs.branch }}" \
+            --base "main" 2>/dev/null \
+            || echo "PR may already exist for this branch, skipping."
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN }}
