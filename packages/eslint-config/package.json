@@ -1,6 +1,6 @@
 {
   "name": "@spike-land-ai/eslint-config",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Shared ESLint flat config for @spike-land-ai packages",
   "type": "module",
   "exports": {
