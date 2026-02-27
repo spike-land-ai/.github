@@ -1,0 +1,173 @@
+name: Claude Code Review (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      ci-workflow-name:
+        type: string
+        default: "CI & Publish"
+        description: "Name of the CI workflow that must pass before review"
+      package-manager:
+        type: string
+        default: "npm"
+        description: "Package manager (npm or yarn)"
+      node-version:
+        type: string
+        default: "24"
+    secrets:
+      GH_PAT_TOKEN:
+        description: "PAT with repo scope for PR operations"
+        required: true
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: "Claude Code OAuth token for code review"
+        required: true
+
+concurrency:
+  group: claude-review-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Get PR number
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.workflow_run.pull_requests[0].number }}"
+
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "0" ]; then
+            HEAD_BRANCH="${{ github.event.workflow_run.head_branch }}"
+            PR_NUMBER=$(gh pr list --repo "${{ github.repository }}" \
+              --head "$HEAD_BRANCH" --state open \
+              --json number --jq '.[0].number // empty')
+          fi
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::warning::No open PR found for this workflow run"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          IS_DRAFT=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq '.draft')
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "PR #$PR_NUMBER is a draft, skipping review"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "Will review PR #$PR_NUMBER"
+
+      - name: Checkout repository
+        if: steps.pr.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 30
+
+      - name: Setup Node.js
+        if: steps.pr.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@spike-land-ai"
+
+      - name: Install dependencies
+        if: steps.pr.outputs.skip != 'true'
+        run: |
+          if [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn
+          elif [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --legacy-peer-deps
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download diff
+        if: steps.pr.outputs.skip != 'true'
+        run: |
+          curl -fsSL "https://github.com/${{ github.repository }}/pull/${{ steps.pr.outputs.number }}.diff" \
+            > "${{ steps.pr.outputs.number }}.diff"
+
+      - name: Run Claude Code Review
+        if: steps.pr.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN }}
+          GH_PAT_TOKEN: ${{ secrets.GH_PAT_TOKEN }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ steps.pr.outputs.number }}
+
+            the full changeset of the branch till now is!
+            @${{ steps.pr.outputs.number }}.diff
+
+            **All CI/CD checks (lint, type-check, unit tests, build) have already PASSED.**
+            You are the final gate before merge.
+
+            Please do a line by line code review on this pull request and provide feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
+
+            Use the repository's CLAUDE.md for guidance on style and conventions.
+
+            ## Your Capabilities
+
+            **GitHub Access:**
+            - Read existing comments: `gh api repos/${{ github.repository }}/issues/${{ steps.pr.outputs.number }}/comments`
+            - Read PR reviews: `gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/reviews`
+            - Use `gh pr comment` or `gh api` for comment management
+            - Before posting new review comments, check for existing Claude code reviews and update them.
+
+            ## Decision: You MUST choose one of two outcomes
+
+            ### Option 1: APPROVE & MERGE
+            If the code is good and ready to ship:
+            1. Approve the PR:
+               ```
+               gh pr review ${{ steps.pr.outputs.number }} --approve --body "✅ Code review passed. LGTM!"
+               ```
+            2. Merge the PR immediately:
+               ```
+               echo $GH_PAT_TOKEN | gh auth login --with-token
+               gh pr merge ${{ steps.pr.outputs.number }} --squash --delete-branch
+               ```
+
+            ### Option 2: REQUEST CHANGES
+            If the code needs fixes:
+            ```
+            echo $GH_PAT_TOKEN | gh auth login --with-token
+            gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/reviews \
+              -X POST \
+              -f event="REQUEST_CHANGES" \
+              -f body="@Jules Please make the following changes to this PR:
+            - [ ] Fix: <specific issue with file path and line number>"
+            ```
+
+            Be constructive. Approve and merge if acceptable — don't be overly pedantic.
+
+          claude_args: |
+            --allowed-tools "Bash(gh:*),Bash(npm:*),Bash(git:*),Edit,Write,Read,Glob,Grep"
+            --model opus
+            --dangerously-skip-permissions
