@@ -1,11 +1,13 @@
 name: CI & Publish Configs
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - "packages/**"
       - "package.json"
+      - ".github/workflows/ci-configs.yml"
   pull_request:
     paths:
       - "packages/**"
