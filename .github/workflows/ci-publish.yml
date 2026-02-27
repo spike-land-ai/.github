@@ -34,7 +34,13 @@ jobs:
           node-version: ${{ inputs.node-version }}
           registry-url: "https://npm.pkg.github.com"
           scope: "@spike-land-ai"
-      - run: npm ci
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
@@ -55,7 +61,13 @@ jobs:
           node-version: ${{ inputs.node-version }}
           registry-url: "https://npm.pkg.github.com"
           scope: "@spike-land-ai"
-      - run: npm ci
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
