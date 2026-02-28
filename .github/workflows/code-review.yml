@@ -72,14 +72,14 @@ jobs:
 
       - name: Checkout repository
         if: steps.pr.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 30
 
       - name: Setup Node.js
         if: steps.pr.outputs.skip != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         with:
           node-version: ${{ inputs.node-version }}
           registry-url: "https://npm.pkg.github.com"
@@ -106,7 +106,7 @@ jobs:
 
       - name: Run Claude Code Review
         if: steps.pr.outputs.skip != 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@3ee921f92e742be4f1f2e867b43a9b9a6d962c4a # v1.0.0
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_TOKEN }}
           GH_PAT_TOKEN: ${{ secrets.GH_PAT_TOKEN }}
