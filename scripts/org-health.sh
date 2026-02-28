@@ -8,7 +8,7 @@ ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 
 REPOS=(hackernews-mcp openclaw-mcp spike-review spike-cli esbuild-wasm-mcp
        vibe-dev shared esbuild-wasm code transpile spike-land-backend
-       mcp-pixel react-ts-worker video spike.land .github)
+       mcp-nanobanana react-ts-worker video spike.land .github)
 
 # Age threshold (days) for flagging PRs and issues
 PR_AGE_DAYS=3

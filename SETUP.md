@@ -157,7 +157,7 @@ gh workflow run dep-sync-sweep.yml --repo spike-land-ai/.github
 | Repo | Reason |
 |------|--------|
 | `vinext.spike.land` | Uses git-SHA deps, not registry versions |
-| `hackernews-mcp`, `mcp-pixel`, `openclaw-mcp`, `spike-review`, `vibe-dev` | Leaf nodes — no internal `@spike-land-ai/*` deps |
+| `hackernews-mcp`, `mcp-nanobanana`, `openclaw-mcp`, `spike-review`, `vibe-dev` | Leaf nodes — no internal `@spike-land-ai/*` deps |
 
 ---
 

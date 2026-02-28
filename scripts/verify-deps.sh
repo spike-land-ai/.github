@@ -9,7 +9,7 @@ ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SOURCES=(esbuild-wasm esbuild-wasm-mcp code shared react-ts-worker spike-cli)
 
 # Consuming repos to check
-CONSUMERS=(shared code esbuild-wasm-mcp transpile spike-land-backend spike.land react-ts-worker spike-cli hackernews-mcp mcp-pixel openclaw-mcp spike-review vibe-dev video)
+CONSUMERS=(shared code esbuild-wasm-mcp transpile spike-land-backend spike.land react-ts-worker spike-cli hackernews-mcp mcp-nanobanana openclaw-mcp spike-review vibe-dev video)
 
 declare -A PUBLISHED
 
