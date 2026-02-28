@@ -1,0 +1,57 @@
+name: "spike.land: Build & Test"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/spike.land/**"
+      - "docs/**"
+      - "content/**"
+  pull_request:
+    paths:
+      - "packages/spike.land/**"
+      - "docs/**"
+      - "content/**"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Sync content
+        working-directory: packages/spike.land
+        run: |
+          ln -s ../../docs docs
+          ln -s ../../content content
+
+      - name: Install dependencies
+        working-directory: packages/spike.land
+        run: |
+          corepack enable
+          yarn install
+
+      - name: Generate Prisma + docs
+        working-directory: packages/spike.land
+        run: |
+          yarn db:generate
+          yarn docs:generate
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+
+      - name: Typecheck
+        working-directory: packages/spike.land
+        run: yarn typecheck
+
+      - name: Test (changed since last commit)
+        working-directory: packages/spike.land
+        run: npx vitest run --changed HEAD~1
