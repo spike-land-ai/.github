@@ -5,6 +5,9 @@
   "@spike-land-ai/shared": ["code", "transpile", "spike-land-backend", "spike.land"],
   "@spike-land-ai/react-ts-worker": ["spike.land"],
   "@spike-land-ai/spike-cli": ["spike.land"],
-  "@spike-land-ai/eslint-config": ["code", "esbuild-wasm-mcp", "hackernews-mcp", "mcp-nanobanana", "openclaw-mcp", "react-ts-worker", "shared", "spike-cli", "spike-review", "spike.land"],
-  "@spike-land-ai/tsconfig": ["code", "esbuild-wasm-mcp", "hackernews-mcp", "mcp-nanobanana", "openclaw-mcp", "react-ts-worker", "shared", "spike-cli", "spike-review", "spike.land"]
+  "@spike-land-ai/mcp-server-base": ["esbuild-wasm-mcp", "hackernews-mcp", "mcp-nanobanana", "openclaw-mcp", "spike-review"],
+  "@spike-land-ai/chess-engine": ["spike.land"],
+  "@spike-land-ai/state-machine": ["spike.land"],
+  "@spike-land-ai/eslint-config": ["chess-engine", "code", "esbuild-wasm-mcp", "hackernews-mcp", "mcp-nanobanana", "mcp-server-base", "openclaw-mcp", "react-ts-worker", "shared", "spike-cli", "spike-review", "state-machine", "spike.land"],
+  "@spike-land-ai/tsconfig": ["chess-engine", "code", "esbuild-wasm-mcp", "hackernews-mcp", "mcp-nanobanana", "mcp-server-base", "openclaw-mcp", "react-ts-worker", "shared", "spike-cli", "spike-review", "state-machine", "spike.land"]
 }
