@@ -12,11 +12,11 @@
     "react.mjs"
   ],
   "dependencies": {
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "8.0.0"
   },
   "peerDependencies": {
-    "eslint-plugin-react": "^7.0.0",
-    "eslint-plugin-react-hooks": "^5.0.0"
+    "eslint-plugin-react": "7.0.0",
+    "eslint-plugin-react-hooks": "5.0.0"
   },
   "peerDependenciesMeta": {
     "eslint-plugin-react": {
